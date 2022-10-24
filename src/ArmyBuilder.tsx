@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import "./App.scss";
 
 import {
+	Alert,
 	Button,
 	Container,
 	Dropdown,
@@ -16,33 +17,36 @@ import UnitTemplateCard from "./UnitTemplateCard";
 
 export interface Army {
 	armyName: string;
-	armyType: string;
+	armyFaction: string;
 	units?: UnitData[];
 }
 
 const ArmyBuilder = ({
 	savedArmies,
+	onUpdateArmy,
 }: {
-	savedArmies?: { [key: string]: Army };
+	savedArmies: { [key: string]: Army };
+	onUpdateArmy: (army: Army, originalArmyName?: string) => void;
 }) => {
-	const [selectedArmyData, setSelectedArmyData] = useState<string>("");
-	const [myArmy, setMyArmy] = useState<Army>();
-	const [enemyArmy, setEnemyArmy] = useState<Army>();
+	const [currentArmy, setCurrentArmy] = useState<string>("");
 	const [editName, setEditName] = useState<boolean>(false);
+	const [changingFaction, setChangingFaction] = useState<boolean>(false);
 	const [edittedName, setEdittedName] = useState<string>("");
 
 	useEffect(() => {
-		setMyArmy(
-			Object.values(savedArmies || {})[0] || {
-				armyName: "New Army",
-				armyType: "",
-				units: [],
-			}
-		);
+		setCurrentArmy(Object.keys(savedArmies)[0]);
 	}, []);
 
-	const selectArmy = (army: string) => {
-		setSelectedArmyData(army);
+	const myArmy = savedArmies[currentArmy] || {
+		armyName: "LOADING...",
+		armyFaction: "",
+		units: [],
+	};
+
+	const selectArmyFaction = (faction: string) => {
+		if (faction !== myArmy.armyFaction) {
+			onUpdateArmy({ ...myArmy, armyFaction: faction, units: [] });
+		}
 	};
 
 	const addUnitToArmy = (unitTemplate: UnitTemplate) => {
@@ -53,16 +57,14 @@ const ArmyBuilder = ({
 		if (myArmy !== undefined) {
 			const units: UnitData[] = myArmy.units || [];
 			units.push(newUnit);
-			setMyArmy({ ...myArmy, units: units });
-		} else {
-			setMyArmy({ armyName: "", armyType: "", units: [newUnit] });
+			onUpdateArmy({ ...myArmy, units: units });
 		}
 	};
 
 	const armyNames: string[] = Object.keys(allArmyTemplates);
 
 	const selectedArmyTemplates: UnitTemplate[] =
-		selectedArmyData !== "" ? allArmyTemplates[selectedArmyData] : [];
+		myArmy.armyFaction !== "" ? allArmyTemplates[myArmy.armyFaction] : [];
 
 	return (
 		<div className="App">
@@ -76,48 +78,70 @@ const ArmyBuilder = ({
 						return (
 							<Dropdown.Item
 								onClick={() => {
-									setMyArmy(army);
+									setCurrentArmy(army.armyName);
 								}}
 							>
 								{army.armyName}
 							</Dropdown.Item>
 						);
 					})}
-					<Dropdown.Item
-						onClick={() => {
-							setMyArmy({ armyName: "New Army", armyType: "", units: [] });
-						}}
-					>
-						New Army
-					</Dropdown.Item>
+					{
+						<Dropdown.Item
+							onClick={() => {
+								onUpdateArmy({
+									armyName: "New Army",
+									armyFaction: "",
+									units: [],
+								});
+								setCurrentArmy("New Army");
+							}}
+						>
+							New Army
+						</Dropdown.Item>
+					}
 				</Dropdown.Menu>
 			</Dropdown>
-			<Dropdown>
-				<Dropdown.Toggle variant="success" id="dropdown-basic">
-					Select Faction
-				</Dropdown.Toggle>
 
-				<Dropdown.Menu>
-					{armyNames.map((army) => {
-						return (
-							<Dropdown.Item
-								onClick={() => {
-									selectArmy(army);
-								}}
-							>
-								{army}
-							</Dropdown.Item>
-						);
-					})}
-				</Dropdown.Menu>
-			</Dropdown>
 			<h1
 				onClick={() => {
+					setEdittedName(myArmy.armyName);
 					setEditName(true);
 				}}
 			>
 				{myArmy !== undefined ? myArmy.armyName : "New Army"}
 			</h1>
+
+			<Container>
+				<h4
+					onClick={() => {
+						setChangingFaction(true);
+					}}
+				>
+					{myArmy.armyFaction || "Select Faction"}
+				</h4>
+				{changingFaction && (
+					<Dropdown>
+						<Dropdown.Toggle variant="success" id="dropdown-basic">
+							Select Faction
+						</Dropdown.Toggle>
+						Warning: Changing Faction deletes all units
+						<Dropdown.Menu>
+							{armyNames.map((army) => {
+								return (
+									<Dropdown.Item
+										onClick={() => {
+											selectArmyFaction(army);
+											setChangingFaction(false);
+										}}
+									>
+										{army}
+									</Dropdown.Item>
+								);
+							})}
+						</Dropdown.Menu>
+					</Dropdown>
+				)}
+			</Container>
 			{editName && (
 				<input
 					type="text"
@@ -127,7 +151,11 @@ const ArmyBuilder = ({
 						if (event.key === "Enter") {
 							if (myArmy !== undefined) {
 								setEditName(false);
-								setMyArmy({ ...myArmy, armyName: edittedName });
+								onUpdateArmy(
+									{ ...myArmy, armyName: edittedName },
+									myArmy.armyName
+								);
+								setCurrentArmy(edittedName);
 							}
 						}
 					}}
@@ -148,14 +176,16 @@ const ArmyBuilder = ({
 			<h1>Units To Add</h1>
 			<Container>
 				<Row>
-					{selectedArmyTemplates.map((unit) => {
-						return (
-							<UnitTemplateCard
-								unitTemplate={unit}
-								onAddUnit={() => addUnitToArmy(unit)}
-							/>
-						);
-					})}
+					{selectedArmyTemplates
+						? selectedArmyTemplates.map((unit) => {
+								return (
+									<UnitTemplateCard
+										unitTemplate={unit}
+										onAddUnit={() => addUnitToArmy(unit)}
+									/>
+								);
+						  })
+						: ""}
 				</Row>
 			</Container>
 		</div>

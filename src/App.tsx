@@ -12,10 +12,23 @@ const App = () => {
 		const savedArmiesString = localStorage.getItem(localStorageKey);
 		if (savedArmiesString && savedArmiesString !== "") {
 			setSavedArmies(JSON.parse(savedArmiesString));
+		} else {
+			setSavedArmies({
+				"New Army": { armyName: "New Army", armyFaction: "", units: [] },
+			});
 		}
 	};
-	const saveArmiesToStorage = () => {
-		localStorage.setItem(localStorageKey, JSON.stringify(savedArmies));
+	const saveArmiesToStorage = (armies: { [key: string]: Army }) => {
+		localStorage.setItem(localStorageKey, JSON.stringify(armies));
+	};
+
+	const onUpdateArmy = (army: Army, originalArmyName?: string) => {
+		const armies = { ...savedArmies };
+		if (originalArmyName) {
+			delete armies[originalArmyName];
+		}
+		setSavedArmies({ ...armies, [army.armyName]: army });
+		saveArmiesToStorage({ ...armies, [army.armyName]: army });
 	};
 
 	useEffect(() => {
@@ -35,7 +48,12 @@ const App = () => {
 					<div />
 				</Tab>
 				<Tab eventKey="armyBuilder" title="Army Builder">
-					<ArmyBuilder savedArmies={savedArmies} />
+					{savedArmies && (
+						<ArmyBuilder
+							savedArmies={savedArmies}
+							onUpdateArmy={onUpdateArmy}
+						/>
+					)}
 				</Tab>
 				<Tab eventKey="contact" title="Contact" disabled>
 					<div />
